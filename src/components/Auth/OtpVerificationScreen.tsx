@@ -1,67 +1,104 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
-  View,
+  ImageBackground,
   Text,
   TextInput,
   TouchableOpacity,
-  ImageBackground,
   useColorScheme,
+  View,
 } from 'react-native';
+import { StackScreenProps } from '@react-navigation/stack';
 import Toast from 'react-native-toast-message';
-import {StackScreenProps} from '@react-navigation/stack';
-import {AuthStackParamList} from '../../navigation/AuthStack';
-import {bgImg} from './ForgotPassword';
+
+import { verifyOtp } from '../../api/authApi';
+import { AuthStackParamList } from '../../navigation/AuthStack';
+import { bgImg } from './ForgotPassword';
 import styles from './authStyles';
-import {verifyOtp} from '../../api/authApi';
 
 type Props = StackScreenProps<AuthStackParamList, 'OtpVerification'>;
 
-const OtpVerificationScreen: React.FC<Props> = ({navigation, route}) => {
-  const mode = useColorScheme();
-  const {email} = route.params;
+const OTP_LENGTH = 6;
+
+const OtpVerificationScreen: React.FC<Props> = ({
+  navigation,
+  route,
+}) => {
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+
+  const { email } = route.params;
+
   const [otp, setOtp] = useState('');
 
-  const verify = async () => {
-    if (otp.length !== 6) {
-      Toast.show({type: 'error', text1: 'OTP must be 6 digits'});
+  const handleVerifyOtp = async () => {
+    const trimmedOtp = otp.trim();
+
+    if (trimmedOtp.length !== OTP_LENGTH) {
+      Toast.show({
+        type: 'error',
+        text1: `OTP must be ${OTP_LENGTH} digits.`,
+      });
       return;
     }
 
     try {
-      await verifyOtp(email, otp);
-      navigation.navigate('ResetPassword', {email, otp});
-    } catch (err: any) {
+      await verifyOtp(email, trimmedOtp);
+
+      navigation.navigate('ResetPassword', {
+        email,
+        otp: trimmedOtp,
+      });
+    } catch (error: any) {
       Toast.show({
         type: 'error',
         text1: 'OTP verification failed',
-        text2: err?.response?.data?.message || 'Server error',
+        text2:
+          error?.response?.data?.message ??
+          error?.message ??
+          'Something went wrong.',
       });
     }
   };
 
   return (
-    <ImageBackground source={bgImg(mode)} style={styles.bg}>
-      <View style={[styles.card, mode === 'dark' && styles.cardDark]}>
-        <Text style={mode == 'dark' ? styles.DarkTitle : styles.title}>
+    <ImageBackground
+      source={bgImg(colorScheme)}
+      style={styles.bg}
+    >
+      <View style={[styles.card, isDarkMode && styles.cardDark]}>
+        <Text style={isDarkMode ? styles.DarkTitle : styles.title}>
           Enter Verification Code
         </Text>
-        <Text style={mode == 'dark' ? styles.Darksubtitle : styles.subtitle}>
-          We sent a 6‑digit code to {email}
+
+        <Text
+          style={isDarkMode ? styles.Darksubtitle : styles.subtitle}
+        >
+          We sent a 6-digit code to {email}
         </Text>
+
         <TextInput
-          placeholder="000000"
-          placeholderTextColor={mode === 'dark' ? '#afafaf' : '#77559990'}
-          keyboardType="numeric"
-          maxLength={6}
-          style={mode === 'dark' ? styles.inputDark : styles.input}
           value={otp}
           onChangeText={setOtp}
+          placeholder="000000"
+          placeholderTextColor={
+            isDarkMode ? '#afafaf' : '#77559990'
+          }
+          style={isDarkMode ? styles.inputDark : styles.input}
+          keyboardType="number-pad"
+          maxLength={OTP_LENGTH}
+          autoCorrect={false}
+          autoCapitalize="none"
         />
-        <TouchableOpacity style={styles.button} onPress={verify}>
+
+        <TouchableOpacity
+          style={styles.button}
+          onPress={handleVerifyOtp}
+        >
           <Text style={styles.buttonText}>Verify</Text>
         </TouchableOpacity>
       </View>
     </ImageBackground>
   );
 };
+
 export default OtpVerificationScreen;
