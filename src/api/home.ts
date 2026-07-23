@@ -1,23 +1,23 @@
-import api from './axiosConfig';
+import axios from 'axios';
+import Config from 'react-native-config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const fetchHomepageProperties = async () => {
-  try {
-    const token = await AsyncStorage.getItem('@travifai_token');
-    if (!token) {
-      console.warn('No auth token found');
-      return [];
-    }
+const api = axios.create({
+  baseURL: Config.BASEURL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  timeout: 10000,
+});
 
-    const response = await api.get('/api/homepage/properties', {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+api.interceptors.request.use(async config => {
+  const token = await AsyncStorage.getItem('@travifai_token');
 
-    return response.data;
-  } catch (error) {
-    console.error('API Fetch Error:', error.response?.data || error.message);
-    return [];
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-};
+
+  return config;
+});
+
+export default api;
