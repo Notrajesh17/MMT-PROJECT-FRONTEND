@@ -1,60 +1,85 @@
-import React, {useState} from 'react';
+import React, { useState } from 'react';
 import {
-  View,
+  ImageBackground,
+  KeyboardAvoidingView,
+  Platform,
   Text,
   TextInput,
   TouchableOpacity,
   useColorScheme,
-  ImageBackground,
-  KeyboardAvoidingView,
-  Platform,
+  View,
 } from 'react-native';
+import { StackScreenProps } from '@react-navigation/stack';
 import Toast from 'react-native-toast-message';
 import Haptics from 'react-native-haptic-feedback';
-import {login} from '../../api/authApi';
-import {clearAuthData, devReset, getAuthData} from '../../utils/session';
-import {StackScreenProps} from '@react-navigation/stack';
-import {AuthStackParamList} from '../../navigation/AuthStack';
-import styles from './authStyles';
 import Icon from 'react-native-vector-icons/Ionicons';
-import {useDisableWhileSubmitting} from '../../utils/useDisableWhileSubmitting';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import {resetTo} from '../../navigation/RootNavigator';
+
+import { login } from '../../api/authApi';
+import { devReset } from '../../utils/session';
+import { AuthStackParamList } from '../../navigation/AuthStack';
+import { useDisableWhileSubmitting } from '../../utils/useDisableWhileSubmitting';
+import styles from './authStyles';
 
 type Props = StackScreenProps<AuthStackParamList, 'Login'>;
-const haptic = () =>
-  Haptics.trigger('impactLight', {enableVibrateFallback: true});
 
-const LoginScreen: React.FC<Props> = ({navigation}) => {
-  const color = useColorScheme();
+const ROLE = 'Traveler';
+
+const triggerHaptic = () =>
+  Haptics.trigger('impactLight', {
+    enableVibrateFallback: true,
+  });
+
+const LoginScreen: React.FC<Props> = ({ navigation }) => {
+  const colorScheme = useColorScheme();
+  const isDarkMode = colorScheme === 'dark';
+
+  const backgroundImage = isDarkMode
+    ? require('../../assets/Images/BgImageDarkMode.png')
+    : require('../../assets/Images/BgImageLightMode.png');
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const {run, getDisabledState} = useDisableWhileSubmitting();
-  const toggleShowPassword = () => setShowPassword(prev => !prev);
 
-  const submit = async () => {
-    if (!email || !password) {
-      Toast.show({type: 'error', text1: 'Enter both fields'});
-      haptic();
+  const { run, getDisabledState } = useDisableWhileSubmitting();
+
+  const handleTogglePassword = () => {
+    setShowPassword(prev => !prev);
+  };
+
+  const handleLogin = async () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail || !password) {
+      Toast.show({
+        type: 'error',
+        text1: 'Please enter both email and password.',
+      });
+      triggerHaptic();
       return;
     }
+
     await run(async () => {
       try {
-        const role = 'Traveler';
-        const result = await login(email, password, role);
+        await login(trimmedEmail, password, ROLE);
 
-        if (!role) {
-          await devReset();
-          throw new Error('Role is missing');
-        }
-        await login(email, password, role);
+        Toast.show({
+          type: 'success',
+          text1: `Welcome back! ${ROLE}`,
+        });
 
-        Toast.show({type: 'success', text1: `Welcome back! ${role}`});
-        navigation.reset({index: 0, routes: [{name: 'Dashboard'}]});
-      } catch (err: any) {
-        const backendMessage = err?.response?.data?.message || '';
-        const registeredRole = err?.response?.data?.registeredRole;
+        navigation.reset({
+          index: 0,
+          routes: [{ name: 'Dashboard' }],
+        });
+      } catch (error: any) {
+        const backendMessage =
+          error?.response?.data?.message ??
+          error?.message ??
+          'Something went wrong';
+
+        const registeredRole = error?.response?.data?.registeredRole;
+
         const isRoleMismatch =
           backendMessage.toLowerCase().includes('mismatch') ||
           backendMessage.toLowerCase().includes('incorrect role');
@@ -63,96 +88,117 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
           Toast.show({
             type: 'error',
             text1: 'Incorrect Role Selected',
-            text2: `This email is registered as ${registeredRole}.`,
+            text2: registeredRole
+              ? `This email is registered as ${registeredRole}.`
+              : backendMessage,
           });
+
           await devReset();
+
           navigation.reset({
             index: 0,
-            routes: [{name: 'Home' as never}],
+            routes: [{ name: 'Home' as never }],
           });
+
           return;
         }
 
         Toast.show({
           type: 'error',
-          text1: 'Login failed',
-          text2: err?.response?.data?.message || 'Server error',
+          text1: 'Login Failed',
+          text2: backendMessage,
         });
-        //console.error(err);
-        haptic();
+
+        triggerHaptic();
       }
     });
   };
 
   return (
-    <ImageBackground
-      source={
-        color === 'dark'
-          ? require('../../assets/Images/BgImageDarkMode.png')
-          : require('../../assets/Images/BgImageLightMode.png')
-      }
-      style={styles.bg}>
+    <ImageBackground source={backgroundImage} style={styles.bg}>
       <KeyboardAvoidingView
+        style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={styles.flex}>
-        <View style={[styles.card, color === 'dark' && styles.cardDark]}>
-          <Text style={color === 'dark' ? styles.DarkTitle : styles.title}>
+      >
+        <View style={[styles.card, isDarkMode && styles.cardDark]}>
+          <Text style={isDarkMode ? styles.DarkTitle : styles.title}>
             Sign In
           </Text>
 
           <TextInput
+            style={isDarkMode ? styles.inputDark : styles.input}
             placeholder="Email"
-            placeholderTextColor={color === 'dark' ? '#afafaf' : '#77559990'}
-            style={color === 'dark' ? styles.inputDark : styles.input}
-            autoCapitalize="none"
+            placeholderTextColor={isDarkMode ? '#afafaf' : '#77559990'}
             keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
             value={email}
             onChangeText={setEmail}
           />
+
           <View
-            style={[
-              color === 'dark'
+            style={
+              isDarkMode
                 ? styles.passwordContainerDark
-                : styles.passwordContainer,
-            ]}>
+                : styles.passwordContainer
+            }
+          >
             <TextInput
+              style={{
+                flex: 1,
+                color: isDarkMode ? '#fff' : '#000',
+              }}
               placeholder="Password"
-              placeholderTextColor={color === 'dark' ? '#afafaf' : '#77559990'}
-              style={{flex: 1, color: color === 'dark' ? '#fff' : '#000'}}
+              placeholderTextColor={isDarkMode ? '#afafaf' : '#77559990'}
               secureTextEntry={!showPassword}
+              autoCapitalize="none"
+              autoCorrect={false}
+              textContentType="password"
               value={password}
               onChangeText={setPassword}
             />
-            <TouchableOpacity onPress={toggleShowPassword} style={{padding: 8}}>
+
+            <TouchableOpacity
+              onPress={handleTogglePassword}
+              style={{ padding: 8 }}
+            >
               <Icon
                 name={showPassword ? 'eye' : 'eye-off'}
                 size={22}
-                color={color === 'dark' ? '#afafaf' : '#775599'}
+                color={isDarkMode ? '#afafaf' : '#775599'}
               />
             </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={[styles.button, getDisabledState() && {opacity: 0.6}]}
+            style={[
+              styles.button,
+              getDisabledState() && { opacity: 0.6 },
+            ]}
             disabled={getDisabledState()}
-            onPress={submit}>
+            onPress={handleLogin}
+          >
             <Text style={styles.buttonText}>
               {getDisabledState() ? 'Please Wait...' : 'Continue'}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => navigation.navigate('ForgotPassword')}>
-            <Text style={color === 'dark' ? styles.linkDark : styles.link}>
+            onPress={() => navigation.navigate('ForgotPassword')}
+          >
+            <Text style={isDarkMode ? styles.linkDark : styles.link}>
               Forgot Password?
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Signup')}
+          >
             <Text
-              style={color === 'dark' ? styles.linkAltDark : styles.linkAlt}>
+              style={isDarkMode ? styles.linkAltDark : styles.linkAlt}
+            >
               New to Travifai?{' '}
-              <Text style={color === 'dark' ? styles.linkDark : styles.link}>
+              <Text style={isDarkMode ? styles.linkDark : styles.link}>
                 Create account
               </Text>
             </Text>
@@ -162,4 +208,5 @@ const LoginScreen: React.FC<Props> = ({navigation}) => {
     </ImageBackground>
   );
 };
+
 export default LoginScreen;
