@@ -6,7 +6,16 @@ import api from './axiosConfig';
 const TOKEN_KEY = '@travifai_token';
 const USER_ID_KEY = 'userID';
 const TOKEN_SAVED_AT_KEY = 'authTokenSavedAt';
+
 const ROLE = 'Traveler';
+
+const AUTH_ENDPOINTS = {
+  SIGNUP: '/api/auth/signup',
+  LOGIN: '/api/auth/login',
+  FORGOT_PASSWORD: '/api/auth/forgot-password',
+  VERIFY_OTP: '/api/auth/verify-otp',
+  RESET_PASSWORD: '/api/auth/reset-password',
+} as const;
 
 interface LoginResponse {
   access_token: string;
@@ -23,7 +32,7 @@ export const signup = async (
   phone: string,
   username: string,
 ): Promise<SignupResponse> => {
-  const { data } = await api.post<SignupResponse>('/api/auth/signup', {
+  const { data } = await api.post<SignupResponse>(AUTH_ENDPOINTS.SIGNUP, {
     email,
     password,
     phone,
@@ -39,7 +48,7 @@ export const login = async (
   password: string,
 ): Promise<string> => {
   try {
-    const { data } = await api.post<LoginResponse>('/api/auth/login', {
+    const { data } = await api.post<LoginResponse>(AUTH_ENDPOINTS.LOGIN, {
       email,
       password,
       role: ROLE,
@@ -53,30 +62,38 @@ export const login = async (
 
     return data.access_token;
   } catch (error) {
-    const axiosError = error as AxiosError;
-
-    console.error(
-      'Login failed:',
-      axiosError.response?.data ?? axiosError.message,
-    );
+    if (error instanceof AxiosError) {
+      console.error(
+        'Login failed:',
+        error.response?.data ?? error.message,
+      );
+    }
 
     throw error;
   }
 };
 
-export const forgotPassword = (email: string) =>
-  api.post('/api/auth/forgot-password', { email });
+export const forgotPassword = (
+  email: string,
+) => {
+  return api.post(AUTH_ENDPOINTS.FORGOT_PASSWORD, { email });
+};
 
-export const verifyOtp = (email: string, otp: string) =>
-  api.post('/api/auth/verify-otp', { email, otp });
+export const verifyOtp = (
+  email: string,
+  otp: string,
+) => {
+  return api.post(AUTH_ENDPOINTS.VERIFY_OTP, { email, otp });
+};
 
 export const resetPassword = (
   email: string,
   newPassword: string,
   confirmPassword: string,
-) =>
-  api.post('/api/auth/reset-password', {
+) => {
+  return api.post(AUTH_ENDPOINTS.RESET_PASSWORD, {
     email,
     newPassword,
     confirmPassword,
   });
+};
